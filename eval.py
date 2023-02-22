@@ -3,6 +3,7 @@
 #cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
 server=0
 sample=0
+GPU=1
 
 _dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/"
 dataset_dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset/val2017/"
@@ -42,6 +43,10 @@ from common.data_utils import preprocess_image
 from common.utils import get_dataset, get_classes, get_anchors, get_colors, draw_boxes, optimize_tf_gpu, get_custom_objects
 
 import pickle
+
+if GPU:
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
