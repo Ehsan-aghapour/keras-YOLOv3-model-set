@@ -2,7 +2,7 @@
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
-** I am using this git repo for evaluating the Yolov3 model. The Evaluation-Yolov3 branch is used for this project.
+** I am using this git repo for evaluating the Yolov3 model. The Accuracy-Yolov3 branch is used for this project.
 
 
 ## Introduction
