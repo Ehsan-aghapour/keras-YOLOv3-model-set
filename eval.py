@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
+server=0
+sample=0
+
+_dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/"
+dataset_dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset/val2017/"
+ann='val2017'
+ann_sample='sample_10_2017'
+if sample:
+    ann=ann_sample
+if server:
+    _dir="./"
+    #ann=ann+"_server"
+    dataset_dir="/home/ehsan/Accuracy/Dataset/val2017/"
+ann=ann+'.txt'
+
 """
 Calculate mAP for YOLO model on some annotation dataset
 """
@@ -24,6 +40,8 @@ from yolo3.postprocess_np import yolo3_postprocess_np
 from yolo2.postprocess_np import yolo2_postprocess_np
 from common.data_utils import preprocess_image
 from common.utils import get_dataset, get_classes, get_anchors, get_colors, draw_boxes, optimize_tf_gpu, get_custom_objects
+
+import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -56,6 +74,8 @@ def annotation_parse(annotation_lines, class_names):
     for line in annotation_lines:
         box_records = {}
         image_name = line.split(' ')[0]
+        if dataset_dir:
+            image_name=dataset_dir+image_name.split("/")[-1]
         boxes = line.split(' ')[1:]
         for box in boxes:
             #strip box coordinate and class
@@ -110,10 +130,13 @@ def yolo_predict_tflite(interpreter, image, anchors, num_classes, conf_threshold
     #if input_details[0]['dtype'] == np.float32:
         #floating_model = True
 
+    
     height = input_details[0]['shape'][1]
     width = input_details[0]['shape'][2]
     model_input_shape = (height, width)
-
+    model_input_shape = (608,608)
+    #print(f'{input_details}\nimage shape:{np.array(image).shape}, model input shape {model_input_shape}')
+    #input()
     image_data = preprocess_image(image, model_input_shape)
     #origin image shape, in (height, width) format
     image_shape = image.size[::-1]
@@ -689,7 +712,11 @@ def draw_rec_prec(rec, prec, mrec, mprec, class_name, ap):
     plt.fill_between(area_under_curve_x, 0, area_under_curve_y, alpha=0.2, edgecolor='r')
     # set window title
     fig = plt.gcf() # gcf - get current figure
-    fig.canvas.set_window_title('AP ' + class_name)
+    # Ehsan: I used the except part because newer version of plt library is different (the first one does not work for newer versions)
+    try:
+        fig.canvas.set_window_title('AP ' + class_name)
+    except:
+        plt.get_current_fig_manager().set_window_title('AP ' + class_name)
     # set plot title
     plt.title('class: ' + class_name + ' AP = {}%'.format(ap*100))
     #plt.suptitle('This is a somewhat long figure title', fontsize=16)
@@ -736,9 +763,14 @@ def generate_rec_prec_html(mrec, mprec, scores, class_name, ap):
       'score' : score_on_curve,
     })
 
+    # Ehsan: try except for making compatibility for newer versions of libraries
     # prepare plot figure
     plt_title = 'class: ' + class_name + ' AP = {}%'.format(ap*100)
-    plt = bokeh_plotting.figure(plot_height=200 ,plot_width=200, tools="", toolbar_location=None,
+    try:
+        plt = bokeh_plotting.figure(plot_height=200 ,plot_width=200, tools="", toolbar_location=None,
+               title=plt_title, sizing_mode="scale_width")
+    except:
+        plt = bokeh_plotting.figure(height=200 ,width=200, tools="", toolbar_location=None,
                title=plt_title, sizing_mode="scale_width")
     plt.background_fill_color = "#f5f5f5"
     plt.grid.grid_line_color = "white"
@@ -836,7 +868,13 @@ def draw_plot_func(dictionary, n_classes, window_title, plot_title, x_label, out
           if i == (len(sorted_values)-1): # largest bar
               adjust_axes(r, t, fig, axes)
     # set window title
-    fig.canvas.set_window_title(window_title)
+    
+    # Ehsan: I used the except part because newer version of plt library is different (the first one does not work for newer versions)
+    try:
+        fig.canvas.set_window_title(window_title)
+    except:
+        plt.get_current_fig_manager().set_window_title(window_title)
+    
     # write classes in y axis
     tick_font_size = 12
     plt.yticks(range(n_classes), sorted_keys, fontsize=tick_font_size)
@@ -1300,7 +1338,18 @@ def eval_AP(model, model_format, annotation_lines, anchors, class_names, model_i
     Compute AP for detection model on annotation dataset
     '''
     annotation_records, gt_classes_records = annotation_parse(annotation_lines, class_names)
-    pred_classes_records = get_prediction_class_records(model, model_format, annotation_records, anchors, class_names, model_input_shape, conf_threshold, elim_grid_sense, v5_decode, save_result)
+    #Ehsan
+    caching=True
+    res_name="test.pkl"
+    
+    if os.path.isfile(res_name) and caching:
+        with open(res_name,'rb') as f:
+            pred_classes_records=pickle.load(f)
+    else:
+        pred_classes_records = get_prediction_class_records(model, model_format, annotation_records, anchors, class_names, model_input_shape, conf_threshold, elim_grid_sense, v5_decode, save_result)
+        with open(res_name,'wb') as f:
+            pickle.dump(pred_classes_records,f)
+
     AP = 0.0
 
     if eval_type == 'VOC':
@@ -1346,13 +1395,22 @@ def load_graph(model_path):
     return graph
 
 
-def load_eval_model(model_path):
+def load_eval_model(model_path,model_input_shape):
     # support of tflite model
     if model_path.endswith('.tflite'):
         from tensorflow.lite.python import interpreter as interpreter_wrapper
         model = interpreter_wrapper.Interpreter(model_path=model_path)
         model.allocate_tensors()
         model_format = 'TFLITE'
+
+        #Ehsan input shape correctness
+        input_details = model.get_input_details()
+        input_shape = input_details[0]['shape']
+        input_shape[1] = model_input_shape[0]
+        input_shape[2] = model_input_shape[1]
+        model.resize_tensor_input(0, input_shape)
+        model.allocate_tensors()
+
 
     # support of MNN model
     elif model_path.endswith('.mnn'):
@@ -1383,34 +1441,36 @@ def load_eval_model(model_path):
 
 
 def main():
+    
     # class YOLO defines the default value, so suppress any default here
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS, description='evaluate YOLO model (h5/pb/onnx/tflite/mnn) with test dataset')
     '''
     Command line options
     '''
     parser.add_argument(
-        '--model_path', type=str, required=True,
-        help='path to model file')
+        '--model_path', type=str, required=False,
+        help='path to model file',default=os.path.join(_dir,'Yolov3.h5'))
 
     parser.add_argument(
-        '--anchors_path', type=str, required=True,
-        help='path to anchor definitions')
+        '--anchors_path', type=str, required=False,
+        help='path to anchor definitions',default=os.path.join('configs',"yolo3_anchors.txt"))
 
     parser.add_argument(
         '--classes_path', type=str, required=False,
-        help='path to class definitions, default=%(default)s', default=os.path.join('configs' , 'voc_classes.txt'))
+        help='path to class definitions, default=%(default)s', default=os.path.join('configs' , 'coco_classes.txt'))
 
     parser.add_argument(
         '--classes_filter_path', type=str, required=False,
         help='path to class filter definitions, default=%(default)s', default=None)
 
+    
     parser.add_argument(
-        '--annotation_file', type=str, required=True,
-        help='test annotation txt file')
+        '--annotation_file', type=str, required=False,
+        help='test annotation txt file',default=os.path.join('./tools/dataset_converter/',ann))
 
     parser.add_argument(
         '--eval_type', type=str, required=False, choices=['VOC', 'COCO'],
-        help='evaluation type (VOC/COCO), default=%(default)s', default='VOC')
+        help='evaluation type (VOC/COCO), default=%(default)s', default='COCO')
 
     parser.add_argument(
         '--iou_threshold', type=float,
@@ -1422,7 +1482,7 @@ def main():
 
     parser.add_argument(
         '--model_input_shape', type=str,
-        help='model image input shape as <height>x<width>, default=%(default)s', default='416x416')
+        help='model image input shape as <height>x<width>, default=%(default)s', default='608x608')
 
     parser.add_argument(
         '--elim_grid_sense', default=False, action="store_true",
@@ -1453,7 +1513,7 @@ def main():
         class_filter = None
 
     annotation_lines = get_dataset(args.annotation_file, shuffle=False)
-    model, model_format = load_eval_model(args.model_path)
+    model, model_format = load_eval_model(args.model_path,model_input_shape)
 
     start = time.time()
     eval_AP(model, model_format, annotation_lines, anchors, class_names, model_input_shape, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter=class_filter)
