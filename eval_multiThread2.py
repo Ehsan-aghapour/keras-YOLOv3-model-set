@@ -1,3 +1,4 @@
+## Use this one for evaluating in multi-thread
 # #cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
 server=1
 sample=0
@@ -1228,6 +1229,8 @@ def compute_mAP_PascalVOC_multithread(_class_names, iou_threshold, thread_indx=-
                     pred_classes_records[class_name] += predicts[class_name].copy()      
                 else:
                     pred_classes_records[class_name] = predicts[class_name].copy()
+    #return pred_classes_records
+        pred_classes_records[class_name]=sorted(pred_classes_records[class_name], key=lambda x:-x[-1])
         #if there's no gt obj for a class, record 0
         if class_name not in gt_classes_records:
             APs[class_name] = 0.
@@ -1528,12 +1531,13 @@ def eval_AP_multithread(model_path, eval_type, iou_threshold, conf_threshold, el
         #for k,i in item_slice.items():
         #    print(k,i)
     #Ehsan
-    caching=False
+    caching=True
     res_name="test_"+str(thread_indx)+".pkl"
     
     if os.path.isfile(res_name) and caching:
         with open(res_name,'rb') as f:
             pred_classes_records=pickle.load(f)
+            all_pred_classes_records[thread_indx]=pred_classes_records.copy()
     else:
         pred_classes_records = get_prediction_class_records(model, model_format, item_slice, anchors, class_names, model_input_shape, conf_threshold, elim_grid_sense, v5_decode, save_result,indx=thread_indx)
         all_pred_classes_records[thread_indx]=pred_classes_records.copy()
@@ -1677,7 +1681,7 @@ def initialize(raw_args=None):
     )
     parser.add_argument(
         '--num_threads', type=int,
-        help='number of threads for running evaluation, default=%(default)s', default=16)
+        help='number of threads for running evaluation, default=%(default)s', default=128)
     parser.add_argument(
         '--thread_indx', type=int,
         help='Thread index, default=%(default)s', default=0)
@@ -1703,7 +1707,7 @@ def initialize(raw_args=None):
     else:
         class_filter = None
     
-    #all_pred_classes_records = [0] * args.num_threads    
+    all_pred_classes_records = [0] * args.num_threads    
     start = time.time()
     annotation_lines = get_dataset(args.annotation_file, shuffle=False)
     APs = {}
@@ -1717,13 +1721,36 @@ def initialize(raw_args=None):
     return args
 
 
+# +
+
+def merge_predicts():
+    global all_pred_classes_records
+    _pred_classes_records=all_pred_classes_records[0].copy()
+    for part in all_pred_classes_records[1:]:
+        for cls in part:
+            if cls in _pred_classes_records:
+                _pred_classes_records[cls] += part[cls].copy()
+            else:
+                _pred_classes_records[cls] = part[cls].copy()
+    del all_pred_classes_records[:]
+    all_pred_classes_records=_pred_classes_records
+    # Sort predicted images for each class based on last element in each predict list (which is probability)
+    for cls in all_pred_classes_records:
+        all_pred_classes_records[cls] = sorted(all_pred_classes_records[cls], key=lambda x: -x[-1])
+    all_pred_classes_records=[all_pred_classes_records]
+    APs={}
+
+
+# -
+
 def run_mltithread(args):
     global class_names, class_filter, anchors, annotation_lines, annotation_records, gt_classes_records, all_pred_classes_records, APs, count_true_positives
     N = len(annotation_lines) 
     num_threads = args.num_threads
+    print(f'number of threads: {num_threads}')
     chunk_size = N // num_threads
     threads = []
-    '''
+    
     if num_threads > 1:
         start_time = time.time()
         for i in range(num_threads):
@@ -1745,7 +1772,10 @@ def run_mltithread(args):
         eval_AP(model, model_format, annotation_lines, anchors, class_names, model_input_shape, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter=class_filter,start_indx=start_i,end_indx=end_i)
         end_time = time.time()
         print("Inference time cost: {:.6f}s".format(end_time - start_time))
-        '''
+    
+    #### Merge predictions of all threads
+    merge_predicts()
+        
     ###### Compute AP
     N = len(class_names) 
     num_threads = min(N,num_threads)
@@ -1773,7 +1803,7 @@ def run_mltithread(args):
         end_time=time.time()
         print("Compute APs time: {:.6f}s".format(end_time - start_time))
         
-
+    ##### Reduce the computed APs for finall calculation
     AP=0
     AP, _=reduce(args.iou_threshold)
     if class_filter is not None:
@@ -1826,13 +1856,14 @@ def test():
     a['bicycle']
 
 
+# +
+
 import pickle
 with open("Yolov3half_q.pkl",'rb') as f:
         a=pickle.load(f)
 with open('Yolov3_s_32.pkl', 'rb') as f:
         b=pickle.load(f)
-a['bicycle']
-
+#a['bicycle']
 
 n=16
 D=[]
@@ -1841,72 +1872,7 @@ for i in range(n):
         dd=pickle.load(f)
         D.append(dd)
 
-
-class_name='bicycle'
+class_name='person'
 print(len(a[class_name]))
 print(len(b[class_name]))
 print(sum([len(k[class_name]) for k in D]))
-
-from collections import OrderedDict
-pp=OrderedDict()
-print(pp.items())
-class_name='bicycle'
-c=0
-for predicts in all_pred_classes_records:
-    c=c+len(predicts[class_name])
-    print(c)
-    if class_name in predicts:
-        if class_name in pp:
-            pp[class_name] += predicts[class_name].copy()    
-        else:
-            pp[class_name] = predicts[class_name].copy()
-print(len(pp['bicycle']))
-#print(pp)
-
-all_pred_classes_records=D
-
-# +
-num_threads=16
-N = len(class_names) 
-num_threads = min(N,num_threads)
-chunk_size = N // num_threads
-threads = []
-if num_threads > 1:
-    start_time = time.time()
-    for i in range(num_threads):
-        start_i = i * chunk_size
-        end_i = start_i + chunk_size
-        if i == num_threads - 1:
-            end_i= N
-        sliced_classes=class_names[start_i:end_i]
-        thread = threading.Thread(target=compute_mAP_PascalVOC_multithread, args=(_class_names:=sliced_classes, iou_threshold:=0.5, thread_indx:=i))
-        threads.append(thread)
-        thread.start()
-
-    for thread in threads:
-        thread.join()
-    end_time = time.time()
-    print("Compute APs time: {:.6f}s".format(end_time - start_time))
-else:
-    start_time = time.time()
-    AP, APs = compute_mAP_PascalVOC(annotation_records, gt_classes_records, pred_classes_records, class_names, iou_threshold)
-    end_time=time.time()
-    print("Compute APs time: {:.6f}s".format(end_time - start_time))
-
-
-AP=0
-AP, _=reduce(0.5)
-if class_filter is not None:
-    get_filter_class_mAP(APs, class_filter)
-# -
-
-q=[[1,2,3]]
-r=[[8]]
-r+=q
-print(r)
-print(q)
-r+=[[9]]
-print(r)
-print(q)
-
-
