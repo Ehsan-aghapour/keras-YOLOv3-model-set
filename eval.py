@@ -1,20 +1,20 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
-server=0
+
+
+# cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
+server=1
 sample=0
 GPU=1
 
-_dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/"
-dataset_dir="/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset/val2017/"
+_dir="./Models/"
+dataset_dir="/home/ehsan/UvA/Accuracy/Keras/YOLOV3/Dataset/val2017/"
 ann='val2017'
 ann_sample='sample_10_2017'
 if sample:
     ann=ann_sample
 if server:
-    _dir="./"
+    _dir="./Models/"
     #ann=ann+"_server"
-    dataset_dir="/home/ehsan/Accuracy/Dataset/val2017/"
+    dataset_dir="/home/ehsan/Accuracy/YOLOV3/Dataset/val2017/"
 ann=ann+'.txt'
 
 """
@@ -43,10 +43,17 @@ from common.data_utils import preprocess_image
 from common.utils import get_dataset, get_classes, get_anchors, get_colors, draw_boxes, optimize_tf_gpu, get_custom_objects
 
 import pickle
-
+#physical_devices = tf.config.list_physical_devices('GPU')
+#tf.config.experimental.set_memory_growth(physical_devices[1], True)
+#import tensorflow.lite.gpu.GpuDelegate
 if GPU:
+    #tf.debugging.set_log_device_placement(True)
+    #delegate = GpuDelegate()
     physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    print(physical_devices)
+    #tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    #import os
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3"
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -1526,5 +1533,6 @@ def main():
     print("Evaluation time cost: {:.6f}s".format(end - start))
 
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
+main()
