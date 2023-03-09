@@ -1,19 +1,40 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     formats: ipynb,py
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.14.5
+#   kernelspec:
+#     display_name: qe
+#     language: python
+#     name: qe
+# ---
+
 ## Use this one for evaluating in multi-thread
 # #cd tools/dataset_converter/ && python coco_annotation.py --dataset_path=/home/ehsan/UvA/Accuracy/Keras/Yolov3/Dataset
 server=1
 sample=0
 GPU=1
 
-_dir="./Models/"
+# +
+_dir="/home/ehsan/UvA/Accuracy/Keras/YOLOV3/Evaluation/"
 dataset_dir="/home/ehsan/UvA/Accuracy/Keras/YOLOV3/Dataset/val2017/"
 ann='val2017'
 ann_sample='sample_10_2017'
 if sample:
     ann=ann_sample
 if server:
-    _dir="./Models/"
+    _dir="/home/ehsan/Accuracy/YOLOV3/Evaluation/"
     #ann=ann+"_server"
     dataset_dir="/home/ehsan/Accuracy/YOLOV3/Dataset/val2017/"
+import os
+_dir=os.path.abspath(os.path.dirname(__file__))
+print(f'Evalution dir:{_dir}')
+
 ann=ann+'.txt'
 
 # +
@@ -33,6 +54,7 @@ from tqdm import tqdm
 import itertools
 import collections
 import threading
+import sys
 # -
 
 from tensorflow.keras.models import load_model
@@ -55,7 +77,7 @@ if GPU:
     #tf.debugging.set_log_device_placement(True)
     #delegate = GpuDelegate()
     physical_devices = tf.config.list_physical_devices('GPU')
-    print(physical_devices)
+    print(f'GPU list:{physical_devices}')
     #tf.config.experimental.set_memory_growth(physical_devices[0], True)
     #import os
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3"
@@ -474,8 +496,8 @@ def get_prediction_class_records(model, model_format, annotation_records, anchor
     #
     # path/to/img1.jpg 50,100,150,200,0,0.86 30,50,200,120,3,0.95
     #
-    os.makedirs('result', exist_ok=True)
-    result_file = open(os.path.join('result','detection_result.txt'), 'w')
+    os.makedirs(_dir+'/result', exist_ok=True)
+    result_file = open(os.path.join(_dir,'result/detection_result.txt'), 'w')
 
     pred_classes_records = OrderedDict()
     
@@ -800,7 +822,7 @@ def draw_rec_prec(rec, prec, mrec, mprec, class_name, ap):
     # Alternative option -> normal display
     #plt.show()
     # save the plot
-    rec_prec_plot_path = os.path.join('result','classes')
+    rec_prec_plot_path = os.path.join(_dir+'/result/classes')
     os.makedirs(rec_prec_plot_path, exist_ok=True)
     fig.savefig(os.path.join(rec_prec_plot_path, class_name + ".png"))
     plt.cla() # clear axes for next plot
@@ -817,7 +839,7 @@ def generate_rec_prec_html(mrec, mprec, scores, class_name, ap):
     if len(mrec) == 0 or len(mprec) == 0 or len(scores) == 0:
         return
 
-    rec_prec_plot_path = os.path.join('result' ,'classes')
+    rec_prec_plot_path = os.path.join(_dir+'/result/classes')
     os.makedirs(rec_prec_plot_path, exist_ok=True)
     bokeh_io.output_file(os.path.join(rec_prec_plot_path, class_name + '.html'), title='P-R curve for ' + class_name)
 
@@ -1048,7 +1070,7 @@ def plot_Pascal_AP_result(count_images, count_true_positives, num_classes,
     window_title = "Ground-Truth Info"
     plot_title = "Ground-Truth\n" + "(" + str(count_images) + " files and " + str(num_classes) + " classes)"
     x_label = "Number of objects per class"
-    output_path = os.path.join('result','Ground-Truth_Info.png')
+    output_path = os.path.join(_dir+'/result/Ground-Truth_Info.png')
     draw_plot_func(gt_counter_per_class, num_classes, window_title, plot_title, x_label, output_path, to_show=False, plot_color='forestgreen', true_p_bar='')
 
     '''
@@ -1061,7 +1083,7 @@ def plot_Pascal_AP_result(count_images, count_true_positives, num_classes,
     plot_title += str(count_non_zero_values_in_dictionary) + " detected classes)"
     # end Plot title
     x_label = "Number of objects per class"
-    output_path = os.path.join('result','Predicted_Objects_Info.png')
+    output_path = os.path.join(_dir+'/result/Predicted_Objects_Info.png')
     draw_plot_func(pred_counter_per_class, len(pred_counter_per_class), window_title, plot_title, x_label, output_path, to_show=False, plot_color='forestgreen', true_p_bar=count_true_positives)
 
     '''
@@ -1070,7 +1092,7 @@ def plot_Pascal_AP_result(count_images, count_true_positives, num_classes,
     window_title = "mAP"
     plot_title = "mAP@IoU={0}: {1:.2f}%".format(iou_threshold, mAP)
     x_label = "Average Precision"
-    output_path = os.path.join('result','mAP.png')
+    output_path = os.path.join(_dir+'/result/mAP.png')
     draw_plot_func(APs, num_classes, window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
     '''
@@ -1079,7 +1101,7 @@ def plot_Pascal_AP_result(count_images, count_true_positives, num_classes,
     window_title = "Precision"
     plot_title = "mPrec@IoU={0}: {1:.2f}%".format(iou_threshold, mPrec)
     x_label = "Precision rate"
-    output_path = os.path.join('result','Precision.png')
+    output_path = os.path.join(_dir+'/result/Precision.png')
     draw_plot_func(precision_dict, len(precision_dict), window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
     '''
@@ -1088,7 +1110,7 @@ def plot_Pascal_AP_result(count_images, count_true_positives, num_classes,
     window_title = "Recall"
     plot_title = "mRec@IoU={0}: {1:.2f}%".format(iou_threshold, mRec)
     x_label = "Recall rate"
-    output_path = os.path.join('result','Recall.png')
+    output_path = os.path.join(_dir+'/result/Recall.png')
     draw_plot_func(recall_dict, len(recall_dict), window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
 
@@ -1292,14 +1314,14 @@ def reduce(iou_threshold, show_result=True):
     
 
     if show_result:
-        plot_Pascal_AP_result(len(annotation_records), count_true_positives, len(gt_classes_records),
+        '''plot_Pascal_AP_result(len(annotation_records), count_true_positives, len(gt_classes_records),
                                   gt_counter_per_class, pred_counter_per_class,
                                   precision_dict, recall_dict, mPrec, mRec,
-                                  APs, mAP, iou_threshold)
+                                  APs, mAP, iou_threshold)'''
         #show result
         print('\nPascal VOC AP evaluation')
-        for (class_name, AP) in APs.items():
-            print('%s: AP %.4f, precision %.4f, recall %.4f' % (class_name, AP, precision_dict[class_name], recall_dict[class_name]))
+        #for (class_name, AP) in APs.items():
+        #    print('%s: AP %.4f, precision %.4f, recall %.4f' % (class_name, AP, precision_dict[class_name], recall_dict[class_name]))
         print('mAP@IoU=%.2f result: %f' % (iou_threshold, mAP))
         print('mPrec@IoU=%.2f result: %f' % (iou_threshold, mPrec))
         print('mRec@IoU=%.2f result: %f' % (iou_threshold, mRec))
@@ -1341,11 +1363,11 @@ def compute_AP_COCO(annotation_records, gt_classes_records, pred_classes_records
         '''
          Draw MS COCO AP plot
         '''
-        os.makedirs('result', exist_ok=True)
+        os.makedirs(_dir+'/result', exist_ok=True)
         window_title = "MSCOCO AP on different IOU"
         plot_title = "COCO AP = {0:.2f}%".format(AP)
         x_label = "Average Precision"
-        output_path = os.path.join('result','COCO_AP.png')
+        output_path = os.path.join(_dir+'/result/COCO_AP.png')
         draw_plot_func(APs, len(APs), window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
         print('\nMS COCO AP evaluation')
@@ -1373,11 +1395,11 @@ def compute_AP_COCO_Scale(annotation_records, scale_gt_classes_records, pred_cla
     '''
      Draw Scale AP plot
     '''
-    os.makedirs('result', exist_ok=True)
+    os.makedirs(_dir+'/result', exist_ok=True)
     window_title = "MSCOCO AP on different scale"
     plot_title = "scale mAP = {0:.2f}%".format(scale_mAP)
     x_label = "Average Precision"
-    output_path = os.path.join('result','COCO_scale_AP.png')
+    output_path = os.path.join(_dir+'/result/COCO_scale_AP.png')
     draw_plot_func(scale_APs, len(scale_APs), window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
     '''
@@ -1396,7 +1418,7 @@ def compute_AP_COCO_Scale(annotation_records, scale_gt_classes_records, pred_cla
         window_title = "{} object number".format(scale_key)
         plot_title = "total {} object number = {}".format(scale_key, total_sum)
         x_label = "Object Number"
-        output_path = os.path.join('result','{}_object_number.png'.format(scale_key))
+        output_path = os.path.join(_dir+'/result','{}_object_number.png'.format(scale_key))
         draw_plot_func(gt_classes_sum, len(gt_classes_sum), window_title, plot_title, x_label, output_path, to_show=False, plot_color='royalblue', true_p_bar='')
 
     print('\nMS COCO AP evaluation on different scale')
@@ -1531,20 +1553,20 @@ def eval_AP_multithread(model_path, eval_type, iou_threshold, conf_threshold, el
         #for k,i in item_slice.items():
         #    print(k,i)
     #Ehsan
-    caching=True
+    caching=False
     res_name="test_"+str(thread_indx)+".pkl"
     
-    if os.path.isfile(res_name) and caching:
+    '''if os.path.isfile(res_name) and caching:
         with open(res_name,'rb') as f:
             pred_classes_records=pickle.load(f)
-            all_pred_classes_records[thread_indx]=pred_classes_records.copy()
-    else:
-        pred_classes_records = get_prediction_class_records(model, model_format, item_slice, anchors, class_names, model_input_shape, conf_threshold, elim_grid_sense, v5_decode, save_result,indx=thread_indx)
-        all_pred_classes_records[thread_indx]=pred_classes_records.copy()
-        end = time.time()
-        print("Inference time for thread {} cost: {:.6f}s".format(thread_indx, end - start))
-        with open(res_name,'wb') as f:
-            pickle.dump(pred_classes_records,f)
+            all_pred_classes_records[thread_indx]=pred_classes_records.copy()'''
+    #else:
+    pred_classes_records = get_prediction_class_records(model, model_format, item_slice, anchors, class_names, model_input_shape, conf_threshold, elim_grid_sense, v5_decode, save_result,indx=thread_indx)
+    all_pred_classes_records[thread_indx]=pred_classes_records.copy()
+    end = time.time()
+    print("Inference time for thread {} cost: {:.6f}s".format(thread_indx, end - start))
+    #with open(res_name,'wb') as f:
+    #    pickle.dump(pred_classes_records,f)
 
     return 
 
@@ -1626,21 +1648,22 @@ def initialize(raw_args=None):
     #parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS, description='evaluate YOLO model (h5/pb/onnx/tflite/mnn) with test dataset')
     global model_input_shape, class_names, class_filter, anchors, annotation_lines, annotation_records, gt_classes_records, all_pred_classes_records, APs, count_true_positives
     start_time=time.time()
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(sys.argv)
+    os.makedirs(_dir+'/Predicts', exist_ok=True)
     '''
     Command line options
     '''
     parser.add_argument(
         '--model_path', type=str, required=False,
-        help='path to model file',default=os.path.join(_dir,'Yolov3.h5'))
+        help='path to model file',default=os.path.join(_dir,'Models/Yolov3.h5'))
 
     parser.add_argument(
         '--anchors_path', type=str, required=False,
-        help='path to anchor definitions',default=os.path.join('configs',"yolo3_anchors.txt"))
+        help='path to anchor definitions',default=os.path.join(_dir,"configs/yolo3_anchors.txt"))
 
     parser.add_argument(
         '--classes_path', type=str, required=False,
-        help='path to class definitions, default=%(default)s', default=os.path.join('configs' , 'coco_classes.txt'))
+        help='path to class definitions, default=%(default)s', default=os.path.join(_dir , 'configs/coco_classes.txt'))
 
     parser.add_argument(
         '--classes_filter_path', type=str, required=False,
@@ -1649,7 +1672,7 @@ def initialize(raw_args=None):
     
     parser.add_argument(
         '--annotation_file', type=str, required=False,
-        help='test annotation txt file',default=os.path.join('./tools/dataset_converter/',ann))
+        help='test annotation txt file',default=os.path.join(_dir,'tools/dataset_converter/'+ann))
 
     parser.add_argument(
         '--eval_type', type=str, required=True, choices=['VOC', 'COCO'],
@@ -1681,14 +1704,20 @@ def initialize(raw_args=None):
     )
     parser.add_argument(
         '--num_threads', type=int,
-        help='number of threads for running evaluation, default=%(default)s', default=128)
+        help='number of threads for running evaluation, default=%(default)s', default=64)
     parser.add_argument(
         '--thread_indx', type=int,
         help='Thread index, default=%(default)s', default=0)
+    parser.add_argument(
+        '--pkl_name', type=str,
+        help='pkl name for saving predicts, default=%(default)s', default=os.path.join(_dir+'/Predicts/','tmp.pkl'))
 
-    args = parser.parse_args(["--eval_type", "VOC","--model_path","../Quantization/Yolo_files/YoloV3_selective_half_quztized.tflite"])
+    #_r=raw_args
+    #if len(sys.argv) > 10:
+    #    _r=sys.argv[1:]
+    print(f'cmd arguments are:{raw_args}')
+    args = parser.parse_args(raw_args+["--eval_type=VOC"])
     # param parse
-    
     
     
     
@@ -1723,7 +1752,7 @@ def initialize(raw_args=None):
 
 # +
 
-def merge_predicts():
+def merge_predicts(pkl_name):
     global all_pred_classes_records
     _pred_classes_records=all_pred_classes_records[0].copy()
     for part in all_pred_classes_records[1:]:
@@ -1737,8 +1766,38 @@ def merge_predicts():
     # Sort predicted images for each class based on last element in each predict list (which is probability)
     for cls in all_pred_classes_records:
         all_pred_classes_records[cls] = sorted(all_pred_classes_records[cls], key=lambda x: -x[-1])
+    
     all_pred_classes_records=[all_pred_classes_records]
+    #os.makedirs("predicts/pkl/", exist_ok=True)
+    with open(_dir+'/Predicts/'+pkl_name,'wb') as f:
+        pickle.dump(all_pred_classes_records,f)
     APs={}
+
+
+# +
+
+import pickle
+def reload(p="Yolov3half_q.pkl"):
+    global all_pred_classes_records
+    with open(p,'rb') as f:
+            all_pred_classes_records=[pickle.load(f)]
+    with open('Yolov3_s_32.pkl', 'rb') as f:
+            b=pickle.load(f)
+    #a['bicycle']
+
+def reload2():
+    n=64
+    global all_pred_classes_records
+    all_pred_classes_records=[]
+    for i in range(n):
+        with open('test_'+str(i)+'.pkl','rb') as f:
+            dd=pickle.load(f)
+            all_pred_classes_records.append(dd)
+
+'''class_name='person'
+print(len(a[class_name]))
+print(len(b[class_name]))
+print(sum([len(k[class_name]) for k in D]))'''
 
 
 # -
@@ -1750,45 +1809,57 @@ def run_mltithread(args):
     print(f'number of threads: {num_threads}')
     chunk_size = N // num_threads
     threads = []
+    caching=True
+    start_time = time.time()
+    if os.path.isfile(_dir+'/Predicts/'+args.pkl_name) and caching:
+        with open(_dir+'/Predicts/'+args.pkl_name,'rb') as f:
+            all_pred_classes_records=pickle.load(f)
     
-    if num_threads > 1:
-        start_time = time.time()
-        for i in range(num_threads):
-            start_i = i * chunk_size
-            end_i = start_i + chunk_size
-            if i == num_threads - 1:
-                end_i= N
-            #item_slice = itertools.islice(data.items(), start, end)
-            thread = threading.Thread(target=eval_AP_multithread, args=(args.model_path, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter:=class_filter,start_indx:=start_i,end_indx:=end_i, thread_indx:=i))
-            threads.append(thread)
-            thread.start()
-        for thread in threads:
-            thread.join()
-            
-        end_time = time.time()
-        print("Inference time: {:.6f}s".format(end_time - start_time))
+    
+    
     else:
-        start_time = time.time()
-        eval_AP(model, model_format, annotation_lines, anchors, class_names, model_input_shape, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter=class_filter,start_indx=start_i,end_indx=end_i)
-        end_time = time.time()
-        print("Inference time cost: {:.6f}s".format(end_time - start_time))
+        if num_threads > 0:
+
+            for i in range(num_threads):
+                start_i = i * chunk_size
+                end_i = start_i + chunk_size
+                if i == num_threads - 1:
+                    end_i= N
+                #item_slice = itertools.islice(data.items(), start, end)
+                thread = threading.Thread(target=eval_AP_multithread, args=(args.model_path, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter:=class_filter,start_indx:=start_i,end_indx:=end_i, thread_indx:=i))
+                threads.append(thread)
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            end_time = time.time()
+            print("Inference time: {:.6f}s".format(end_time - start_time))
+        else:
+            eval_AP(model, model_format, annotation_lines, anchors, class_names, model_input_shape, args.eval_type, args.iou_threshold, args.conf_threshold, args.elim_grid_sense, args.v5_decode, args.save_result, class_filter=class_filter,start_indx=start_i,end_indx=end_i)
+
+    end_time = time.time()
+    print("Inference time cost: {:.6f}s".format(end_time - start_time))
     
     #### Merge predictions of all threads
-    merge_predicts()
+    merge_predicts(args.pkl_name)
         
     ###### Compute AP
+    num_threads=1
     N = len(class_names) 
     num_threads = min(N,num_threads)
     chunk_size = N // num_threads
     threads = []
-    if num_threads > 1:
+    if num_threads > 0:
         start_time = time.time()
         for i in range(num_threads):
-            start_i = i * chunk_size
+            Y=[len(all_pred_classes_records[0][p]) for p in class_names]
+            Z = [x for _,x in sorted(zip(Y,class_names))]
+            sliced_classes=Z[i::num_threads]
+            '''start_i = i * chunk_size
             end_i = start_i + chunk_size
             if i == num_threads - 1:
                 end_i= N
-            sliced_classes=class_names[start_i:end_i]
+            sliced_classes=class_names[start_i:end_i]'''
             thread = threading.Thread(target=compute_mAP_PascalVOC_multithread, args=(_class_names:=sliced_classes, iou_threshold:=args.iou_threshold, thread_indx:=i))
             threads.append(thread)
             thread.start()
@@ -1799,33 +1870,33 @@ def run_mltithread(args):
         print("Compute APs time: {:.6f}s".format(end_time - start_time))
     else:
         start_time = time.time()
-        AP, APs = compute_mAP_PascalVOC(annotation_records, gt_classes_records, pred_classes_records, class_names, iou_threshold)
+        AP, APs = compute_mAP_PascalVOC(annotation_records, gt_classes_records, all_pred_classes_records, class_names, args.iou_threshold)
         end_time=time.time()
         print("Compute APs time: {:.6f}s".format(end_time - start_time))
         
     ##### Reduce the computed APs for finall calculation
     AP=0
-    AP, _=reduce(args.iou_threshold)
+    mAP, APs=reduce(args.iou_threshold)
     if class_filter is not None:
         get_filter_class_mAP(APs, class_filter)
-
+    return mAP,APs
 
 # +
 
 global class_names, class_filter, model_input_shape, anchors, annotation_lines, annotation_records, gt_classes_records, all_pred_classes_records, APs, count_true_positives
-def main():
+def main(_args=[]):
     start_time=time.time()
-    args=initialize()
-    #print(len(all_pred_classes_records))
-    run_mltithread(args)
+    args=initialize(_args)
+    mAP,APs=run_mltithread(args)
     end_time=time.time()
     print("Total time: {:.6f}s".format(end_time - start_time))
+    return mAP,APs
 
 
 # -
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
 
 
 def test():
@@ -1854,25 +1925,3 @@ def test():
             a[key] = value
 
     a['bicycle']
-
-
-# +
-
-import pickle
-with open("Yolov3half_q.pkl",'rb') as f:
-        a=pickle.load(f)
-with open('Yolov3_s_32.pkl', 'rb') as f:
-        b=pickle.load(f)
-#a['bicycle']
-
-n=16
-D=[]
-for i in range(n):
-    with open('test_'+str(i)+'.pkl','rb') as f:
-        dd=pickle.load(f)
-        D.append(dd)
-
-class_name='person'
-print(len(a[class_name]))
-print(len(b[class_name]))
-print(sum([len(k[class_name]) for k in D]))
